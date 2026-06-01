@@ -1,15 +1,17 @@
 import { OpenAI } from "openai";
 
 import * as dotenv from "dotenv";
-
+import { Tool } from "openai/resources/responses/responses.js";
+import { ResponseCreateParamsBase, ResponseInput, ResponseInputItem } from "openai/resources/responses/responses.mjs";
+import { isToolCall } from "./utils";
 dotenv.config()
 
 const client = new OpenAI();
 const done = false;
 
 const SYSTEM_PROMPT = "Hello, You are a helpful assistant."
-
-const tools = [
+const MODEL = "gpt-5.4-mini"
+const tools: Array<Tool> = [
     {
         type: "function",
         name: "get_horoscope",
@@ -33,40 +35,39 @@ function getHoroscope(sign: string) {
     return `${sign}: you will befriend a baby otter.`
 }
 
-let input = [
-    {role: "user", content: "What is my horoscope? I'm virgo."},
+let input: Array<ResponseInputItem> = [
+    { role: "user", content: "What is my horoscope, I am a Virgo!" },
 ]
 
 async function main() {
-        let response = await client.responses.create({
-            model: "gpt-3.5-turbo",
-            input,
-            tools
-        });
-        console.log(response.output_text);
+    let response = await client.responses.create({
+        model: MODEL,
+        input,
+        tools
+    });
+    const toolOutputs: Array<ResponseInputItem> = [];
+    for (const item of response.output) {
+        if (!isToolCall(item)) continue;
 
-        input.push(...response.output)
-        for (const item of response.output) {
-            if (item.type !== "function_call") continue;
-
-            if (item.name === "get_horoscope") {
-                const {sign} = JSON.parse(item.arguments);
-                const horoscope = getHoroscope(sign);
-                input.push({
-                    type: "function_call_output",
-                    call_id: item.call_id,
-                    output: horoscope
-                })
-            } 
+        if (item.name === "get_horoscope") {
+            const { sign } = JSON.parse(item.arguments);
+            const horoscope = getHoroscope(sign);
+            toolOutputs.push({
+                type: "function_call_output",
+                call_id: item.call_id,
+                output: horoscope
+            })
+            response = await client.responses.create({
+                model: MODEL,
+                tools: tools,
+                input: toolOutputs,
+                previous_response_id: response.id
+            })
         }
+    }
+    console.log(response.output_text)
 
-        response = await client.responses.create({
-            model: "gpt-3.5-turbo",
-            tools,
-            input
-        })
 
-        console.log(response.output_text)
 
 }
 
