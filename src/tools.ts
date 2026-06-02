@@ -1,56 +1,89 @@
+import { readFile } from "node:fs/promises";
+import { isAbsolute, relative, resolve } from "node:path";
 import { FunctionTool, ResponseFunctionToolCall, ResponseInputItem } from "openai/resources/responses/responses.mjs";
 type ToolHandler = {
     definition: FunctionTool,
-    run: (args: any) => string | Promise<string>
+    run: (args: unknown) => string | Promise<string>
 
 }
 
+function resolveWorkspacePath(workspaceRoot: string, path: string): string {
+    const resolvedRoot = resolve(workspaceRoot);
+    const resolvedPath = resolve(resolvedRoot, path);
+    const relativePath = relative(resolvedRoot, resolvedPath);
 
-function getHoroscope({ sign }: {sign: string}) {
-        return `${sign}: you will befriend a baby otter.`;
+    if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+        throw new Error(`Path escapes workspace ${path}`);
+    }
+
+    return resolvedPath;
 }
 
-const toolRegistry = {
-    get_horoscope: {
-        definition: {
-            type: "function",
-            name: "get_horoscope",
-            description: "Get today's horoscope for an astrological sign.",
-            parameters: {
-                type: "object",
-                properties: {
-                    sign: {
-                        type: "string",
-                        description: "An astrological sign like Taurus or Aquarius",
-                    }
+async function readFileTool(workspaceRoot: string, path: string): Promise<string> {
+    const filePath = resolveWorkspacePath(workspaceRoot, path);
+    return await readFile(filePath, "utf-8");
+
+}
+
+export class ToolRegistry {
+    private tools = new Map<string, ToolHandler>()
+
+
+    register(toolHandler: ToolHandler): void {
+        if (this.tools.has(toolHandler.definition.name)) {
+            throw new Error(`Tool ${toolHandler.definition.name} already registered.`)
+        }
+        this.tools.set(toolHandler.definition.name, toolHandler)
+    }
+
+    definitions(): FunctionTool[] {
+        return Array.from(this.tools.values(), (toolHandler) => toolHandler.definition);
+    }
+
+    async handleToolCall(toolCall: ResponseFunctionToolCall): Promise<ResponseInputItem.FunctionCallOutput> {
+        const tool = this.tools.get(toolCall.name);
+        if (!tool) {
+            throw new Error(`Invalid tool call: ${toolCall.name}`);
+        }
+
+        const args = JSON.parse(toolCall.arguments);
+        const output = await tool.run(args);
+        return {
+            type: "function_call_output",
+            call_id: toolCall.call_id,
+            output
+        }
+    }
+}
+
+export function createDefaultTools(workspaceRoot: string): ToolRegistry {
+    const registry = new ToolRegistry();
+
+    registry.register(
+        {
+            definition: {  // TODO: Tidy this into a datastructure
+                type: "function",
+                name: "read_file",
+                description: "Read the contents of a file/path.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        path: {
+                            type: "string",
+                            description: "The path of the file to read."
+                        },
+                    },
+                    required: ["path"],
+                    additionalProperties: false
                 },
-                required: ["sign"],
-                additionalProperties: false
+                strict: true
             },
-            strict: true
-        },
-    run: getHoroscope
-    }
-} satisfies Record<string, ToolHandler>
+            run: async (input) => {
+                const { path } = input as {path: string}; // TODO: Tidy this typing, probably introduce some kind of ReadFileToolArgs
 
-function handleToolCall(toolCall: ResponseFunctionToolCall): ResponseInputItem.FunctionCallOutput {
-    const tool = toolRegistry[toolCall.name as keyof typeof toolRegistry]
-    if (!tool) {
-        throw new Error(`Invalid tool call: ${toolCall.name}`);
-    }
-    const args = JSON.parse(toolCall.arguments);
-    const output = tool.run(args);
-    return {
-        type: "function_call_output",
-        call_id: toolCall.call_id,
-        output
-    }
+                return await readFileTool(workspaceRoot, path);
+            },
+        }
+    )
+    return registry;
 }
-
-const tools = Object.values(toolRegistry).map((toolHandler: ToolHandler) => toolHandler.definition);
-
-
-export {
-    handleToolCall,
-    tools
-};
