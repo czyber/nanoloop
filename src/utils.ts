@@ -1,5 +1,5 @@
-import { ResponseFunctionToolCall, ResponseOutputItem } from "openai/resources/responses/responses.mjs";
+import type { ResponseFunctionToolCall, ResponseOutputItem } from "openai/resources/responses/responses.mjs";
 
 export function isToolCall(output: ResponseOutputItem): output is ResponseFunctionToolCall {
-    return output.type === "function_call"
+  return output.type === "function_call";
 }
