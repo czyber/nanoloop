@@ -12,7 +12,7 @@ const { stdin, stdout } = require("node:process");
 
 const MODEL = "gpt-5.4-mini";
 
-let inputs: Array<ResponseInputItem> = [];
+const inputs: Array<ResponseInputItem> = [];
 
 async function run(maxTurns = 8): Promise<void> {
   const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -21,17 +21,18 @@ async function run(maxTurns = 8): Promise<void> {
   try {
     while (true) {
       const userInput = await rl.question("> ");
-      inputs.push({ role: "user", content: userInput });
+      let inputs: Array<ResponseInputItem> = [{ role: "user", content: userInput }];
 
-      let previous_response_id: string | undefined;
+      let previousResponseId: string | undefined;
       let completed = false;
       for (let turn = 0; turn < maxTurns; ++turn) {
         const response = await client.responses.create({
           model: MODEL,
           input: inputs,
           tools: toolRegistry.definitions(),
-          previous_response_id,
+          previous_response_id: previousResponseId,
         });
+        previousResponseId = response.id;
         const toolOutputs: Array<ResponseInputItem> = await Promise.all(
           response.output.filter(isToolCall).map((toolCall) => toolRegistry.handleToolCall(toolCall)),
         );
@@ -41,7 +42,6 @@ async function run(maxTurns = 8): Promise<void> {
           break;
         }
         inputs = toolOutputs;
-        previous_response_id = response.id;
       }
       if (!completed) {
         throw new Error(`Exceeded max tool turns ${maxTurns}`);
