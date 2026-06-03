@@ -118,7 +118,6 @@ Then type a request:
 - [src/tools/write-file.ts](src/tools/write-file.ts): whole-file writing tool
 - [src/tools/edit-file.ts](src/tools/edit-file.ts): exact-snippet file editing tool
 - [src/tools/run_command.ts](src/tools/run_command.ts): shell command tool
-- [docs/building_notes.md](docs/building_notes.md): notes about the tool-call structure
 
 If you only read one file, read [src/main.ts](src/main.ts).
 
