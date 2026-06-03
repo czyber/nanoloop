@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { ToolHandler } from "./registry";
-import { resolveWorkspacePath } from "./registry";
+import { requiredStringArg, resolveWorkspacePath } from "./registry";
 
 async function readFileTool(workspaceRoot: string, path: string): Promise<string> {
   const filePath = resolveWorkspacePath(workspaceRoot, path);
@@ -27,8 +27,7 @@ export function createReadFileTool(workspaceRoot: string): ToolHandler {
       strict: true,
     },
     run: async (input) => {
-      const { path } = input as { path: string }; // TODO: Tidy this typing, probably introduce some kind of readFileToolArgs
-
+      const path = requiredStringArg(input, "path");
       return await readFileTool(workspaceRoot, path);
     },
   };

@@ -1,9 +1,9 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createTwoFilesPatch } from "diff";
 import type { ToolHandler } from "./registry";
-import { resolveWorkspacePath } from "./registry";
+import { requiredStringArg, resolveWorkspacePath } from "./registry";
 
-function countOccurences(text: string, search: string): number {
+function countOccurrences(text: string, search: string): number {
   if (search.length === 0) {
     return 0;
   }
@@ -16,24 +16,28 @@ async function editFileTool(
   oldSnippet: string,
   newSnippet: string,
 ): Promise<string> {
+  if (oldSnippet.length === 0) {
+    throw new Error("oldSnippet must not be empty.");
+  }
+
   const filePath = resolveWorkspacePath(workspaceRoot, path);
   const before = await readFile(filePath, "utf-8");
-  const occurences = countOccurences(before, oldSnippet);
+  const occurrences = countOccurrences(before, oldSnippet);
 
-  if (occurences === 0) {
+  if (occurrences === 0) {
     throw new Error(`Snippet to be replaced not found in ${filePath}`);
   }
 
-  if (occurences > 1) {
+  if (occurrences > 1) {
     throw new Error(
-      `Multiple occurences of the snippet to be replaced were found in ${filePath}. Choose a more specific snippet.`,
+      `Multiple occurrences of the snippet to be replaced were found in ${filePath}. Choose a more specific snippet.`,
     );
   }
 
   const after = before.replace(oldSnippet, newSnippet);
   const diff = createTwoFilesPatch(filePath, filePath, before, after, "before", "after");
   await writeFile(filePath, after, "utf-8");
-  return JSON.stringify(diff);
+  return diff;
 }
 
 export function createEditFileTool(workspaceRoot: string): ToolHandler {
@@ -64,7 +68,9 @@ export function createEditFileTool(workspaceRoot: string): ToolHandler {
       strict: true,
     },
     run: async (input) => {
-      const { path, oldSnippet, newSnippet } = input as { path: string; oldSnippet: string; newSnippet: string };
+      const path = requiredStringArg(input, "path");
+      const oldSnippet = requiredStringArg(input, "oldSnippet");
+      const newSnippet = requiredStringArg(input, "newSnippet");
       return await editFileTool(workspaceRoot, path, oldSnippet, newSnippet);
     },
   };

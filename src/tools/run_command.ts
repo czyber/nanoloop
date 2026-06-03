@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
 import type { ToolHandler } from "./registry";
+import { requiredStringArg } from "./registry";
 
 export async function runCommandTool(workspaceRoot: string, command: string): Promise<string> {
-  // TODO: In the future we would also like to return stderr, exitCode
-  // TODO: Maybe use execa to simplify this? Got some problems with it initially so for now this is the solution
   return await new Promise((resolve, reject) => {
     const childProcess = spawn(command, { cwd: workspaceRoot, shell: true });
     let stdout = "";
+    let stderr = "";
 
     const timeout = setTimeout(() => {
       childProcess.kill();
@@ -18,14 +18,19 @@ export async function runCommandTool(workspaceRoot: string, command: string): Pr
       stdout += chunk;
     });
 
+    childProcess.stderr.setEncoding("utf-8");
+    childProcess.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+
     childProcess.on("error", (error) => {
       clearTimeout(timeout);
       reject(error);
     });
 
-    childProcess.on("close", () => {
+    childProcess.on("close", (exitCode) => {
       clearTimeout(timeout);
-      resolve(stdout);
+      resolve([`exit_code: ${exitCode}`, "stdout:", stdout.trimEnd(), "stderr:", stderr.trimEnd()].join("\n"));
     });
   });
 }
@@ -50,8 +55,7 @@ export function createRunCommandTool(workspaceRoot: string): ToolHandler {
       strict: true,
     },
     run: async (input) => {
-      const { command } = input as { command: string }; // TODO: Tidy this typing, probably introduce some kind of runCommandToolArgs
-
+      const command = requiredStringArg(input, "command");
       return await runCommandTool(workspaceRoot, command);
     },
   };

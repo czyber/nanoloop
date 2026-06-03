@@ -1,13 +1,14 @@
 import { createEditFileTool } from "./edit-file";
 import { createReadFileTool } from "./read-file";
-import { ToolRegistry } from "./registry";
+import type { ToolMap } from "./registry";
 import { createRunCommandTool } from "./run_command";
+import { createWriteFileTool } from "./write-file";
 
-export function createDefaultTools(workspaceRoot: string): ToolRegistry {
-  const registry = new ToolRegistry();
-
-  registry.register(createReadFileTool(workspaceRoot));
-  registry.register(createEditFileTool(workspaceRoot));
-  registry.register(createRunCommandTool(workspaceRoot));
-  return registry;
+export function createDefaultTools(workspaceRoot: string): ToolMap {
+  return {
+    read_file: createReadFileTool(workspaceRoot),
+    write_file: createWriteFileTool(workspaceRoot),
+    edit_file: createEditFileTool(workspaceRoot),
+    run_command: createRunCommandTool(workspaceRoot),
+  };
 }
