@@ -35,7 +35,7 @@ function createAgent(workspaceRoot: string): Agent {
   };
 }
 
-// Start reading here: this is the command-line loop for the agent.
+// this is the command-line loop for the agent.
 async function mainLoop(): Promise<void> {
   const rl = readline.createInterface({ input: stdin, output: stdout });
   const agent = createAgent(process.cwd());
@@ -84,6 +84,7 @@ async function runToolCalls(tools: ToolMap, toolCalls: ResponseFunctionToolCall[
   return toolOutputs;
 }
 
+// entry point
 async function main() {
   await mainLoop();
 }
