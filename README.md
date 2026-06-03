@@ -128,7 +128,7 @@ Real tools build a lot around this simple loop:
 
 - larger system prompts and instruction layers
 - repository search and context selection
-- patch application and review flows
+- patch application and review flows (it's YOLO mode per default)
 - sandboxing and command approval
 - long-running command handling
 - tool error recovery
@@ -140,23 +140,3 @@ Real tools build a lot around this simple loop:
 
 nanoloop leaves most of that out on purpose. Once the basic loop is clear, those features are easier to
 understand as additions instead of mysteries.
-
-## Development
-
-Run the type checker:
-
-```sh
-pnpm typecheck
-```
-
-Run formatting and lint checks:
-
-```sh
-pnpm check
-```
-
-The test script currently runs the type checker:
-
-```sh
-pnpm test
-```
